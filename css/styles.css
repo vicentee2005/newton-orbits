@@ -512,10 +512,13 @@ td input[type="color"] {
 /* ============================================================= teoría === */
 
 .theory-body {
+  width: 100%;
   max-width: 860px;
   margin: 0 auto;
   padding: 2rem 1.4rem 4rem;
   flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   line-height: 1.65;
 }
 
