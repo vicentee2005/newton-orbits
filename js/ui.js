@@ -45,9 +45,8 @@
     const newBodyMass = el("newBodyMass");
     const addModeHint = el("addModeHint");
     const bodyTableBody = el("bodyTableBody");
-    const presetSelect = el("presetSelect");
+    const presetCards = el("presetCards");
     const presetDescription = el("presetDescription");
-    const loadPresetBtn = el("loadPresetBtn");
     const exportBtn = el("exportBtn");
     const importBtn = el("importBtn");
     const importFileInput = el("importFileInput");
@@ -493,18 +492,49 @@
     zoomOutBtn.addEventListener("click", () => camera.zoomAt(viewW / 2, viewH / 2, viewW, viewH, 1 / 1.25));
     zoomResetBtn.addEventListener("click", fitCameraToBodies);
 
-    // --- Presets --------------------------------------------------------------
+    // --- Presets (tarjetas) ---------------------------------------------------
+
+    let selectedPresetKey = null;
+    const presetCardRefs = new Map(); // key -> botón de la tarjeta
 
     for (const [key, preset] of Object.entries(PRESETS)) {
-      const opt = document.createElement("option");
-      opt.value = key;
-      opt.textContent = preset.label;
-      presetSelect.appendChild(opt);
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "preset-card";
+      card.dataset.key = key;
+
+      const icon = document.createElement("span");
+      icon.className = "preset-card-icon";
+      icon.textContent = preset.icon || "•";
+
+      const label = document.createElement("span");
+      label.className = "preset-card-label";
+      label.textContent = preset.label;
+
+      card.append(icon, label);
+      card.title = preset.description || preset.label;
+      card.addEventListener("click", () => {
+        sim.loadPreset(key);
+        selectedPresetKey = key;
+        highlightSelectedPreset();
+        updatePresetDescription();
+        applyLoadedState();
+        setRunning(true);
+      });
+      presetCards.appendChild(card);
+      presetCardRefs.set(key, card);
     }
+
+    function highlightSelectedPreset() {
+      for (const [key, card] of presetCardRefs) {
+        card.classList.toggle("selected", key === selectedPresetKey);
+      }
+    }
+
     function updatePresetDescription() {
-      presetDescription.textContent = PRESETS[presetSelect.value]?.description || "";
+      presetDescription.textContent =
+        (selectedPresetKey && PRESETS[selectedPresetKey]?.description) || "";
     }
-    presetSelect.addEventListener("change", updatePresetDescription);
 
     function applyLoadedState() {
       dtInput.value = sim.dt;
@@ -516,12 +546,10 @@
       options.selectedId = null;
       rebuildBodyTable();
       fitCameraToBodies();
+      charts.reset(sim);
+      highlightSelectedPreset();
+      updatePresetDescription();
     }
-
-    loadPresetBtn.addEventListener("click", () => {
-      sim.loadPreset(presetSelect.value);
-      applyLoadedState();
-    });
 
     // --- Guardar / exportar ---------------------------------------------------
 
@@ -543,6 +571,7 @@
       reader.onload = () => {
         try {
           sim.loadFromJSON(JSON.parse(reader.result));
+          selectedPresetKey = null;
           applyLoadedState();
           showHint("Escena importada.");
         } catch (err) {
@@ -559,6 +588,7 @@
     });
     loadLocalBtn.addEventListener("click", () => {
       if (sim.loadFromLocalStorage()) {
+        selectedPresetKey = null;
         applyLoadedState();
         showHint("Escena cargada.");
       } else {
@@ -566,12 +596,41 @@
       }
     });
 
+    // --- Modal de bienvenida (solo la primera visita) ------------------------
+
+    const WELCOME_KEY = "orbitas-newton:bienvenida-vista";
+    const welcomeOverlay = el("welcomeOverlay");
+    const welcomeStartBtn = el("welcomeStartBtn");
+    function closeWelcome() {
+      if (welcomeOverlay) welcomeOverlay.hidden = true;
+      try {
+        localStorage.setItem(WELCOME_KEY, "1");
+      } catch (e) {
+        /* sin persistencia: se volverá a mostrar, no es grave */
+      }
+    }
+    if (welcomeOverlay && welcomeStartBtn) {
+      let seen = false;
+      try {
+        seen = localStorage.getItem(WELCOME_KEY) === "1";
+      } catch (e) {
+        seen = false;
+      }
+      if (!seen) welcomeOverlay.hidden = false;
+      welcomeStartBtn.addEventListener("click", closeWelcome);
+      welcomeOverlay.addEventListener("click", (e) => {
+        if (e.target === welcomeOverlay) closeWelcome();
+      });
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !welcomeOverlay.hidden) closeWelcome();
+      });
+    }
+
     // --- Preset inicial + bucle de animación ---------------------------------
 
     const initialPresetKey = new URLSearchParams(location.search).get("preset");
-    sim.loadPreset(initialPresetKey && PRESETS[initialPresetKey] ? initialPresetKey : "kepler2");
-    presetSelect.value = initialPresetKey && PRESETS[initialPresetKey] ? initialPresetKey : "kepler2";
-    updatePresetDescription();
+    selectedPresetKey = initialPresetKey && PRESETS[initialPresetKey] ? initialPresetKey : "kepler2";
+    sim.loadPreset(selectedPresetKey);
     applyLoadedState();
     setRunning(true);
 

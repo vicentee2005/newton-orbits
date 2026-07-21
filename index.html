@@ -8,6 +8,23 @@
   name="description"
   content="Simulador interactivo 2D de gravitación newtoniana para N cuerpos puntuales, con explicación teórica de nivel universitario."
 />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Órbitas de Newton — Simulador de N cuerpos" />
+<meta
+  property="og:description"
+  content="Simulador interactivo 2D de gravitación newtoniana para N cuerpos puntuales, con teoría de nivel universitario."
+/>
+<meta name="twitter:card" content="summary" />
+<!-- Fija el tema antes de pintar, para que no haya parpadeo claro/oscuro. -->
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("orbitas-newton:tema");
+      if (t) document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  })();
+</script>
 <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -20,6 +37,7 @@
     <nav class="topnav">
       <a class="topnav-link active" href="index.html">Simulador</a>
       <a class="topnav-link" href="theory.html">Teoría</a>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Cambiar tema">🌙</button>
     </nav>
   </header>
 
@@ -161,14 +179,8 @@
 
       <section class="panel-section">
         <h2>Escenarios</h2>
-        <label class="field">
-          <span>Preset</span>
-          <select id="presetSelect"></select>
-        </label>
+        <div class="preset-cards" id="presetCards"></div>
         <p class="hint-text" id="presetDescription"></p>
-        <div class="row buttons-row">
-          <button id="loadPresetBtn" class="btn">Cargar escenario</button>
-        </div>
       </section>
 
       <section class="panel-section">
@@ -192,8 +204,43 @@
       relativistas. Ver la <a href="theory.html">explicación teórica completa</a>.
     </p>
   </footer>
+
+  <div class="welcome-overlay" id="welcomeOverlay" hidden>
+    <div class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+      <h2 id="welcomeTitle">🪐 Bienvenido a Órbitas de Newton</h2>
+      <p>
+        Un simulador interactivo de gravitación entre cuerpos puntuales. Aquí tienes lo
+        esencial para empezar:
+      </p>
+      <ul class="welcome-steps">
+        <li>
+          <span class="step-icon">🎯</span>
+          <span>Elige un <b>escenario</b> del panel derecho (Kepler, figura-8, Lagrange…) o
+            crea el tuyo.</span>
+        </li>
+        <li>
+          <span class="step-icon">➕</span>
+          <span>Pulsa <b>Añadir cuerpo</b>, haz clic en el lienzo para colocarlo y arrastra
+            para fijar su velocidad inicial.</span>
+        </li>
+        <li>
+          <span class="step-icon">🖱️</span>
+          <span>Arrastra el fondo para moverte y usa la rueda para hacer zoom.</span>
+        </li>
+        <li>
+          <span class="step-icon">📊</span>
+          <span>Observa las <b>gráficas</b> de espacio fásico y energía, y los diagnósticos
+            de conservación en vivo.</span>
+        </li>
+      </ul>
+      <div class="welcome-actions">
+        <button id="welcomeStartBtn" class="btn btn-primary">Empezar a explorar</button>
+      </div>
+    </div>
+  </div>
 </div>
 
+<script src="js/theme.js"></script>
 <script src="js/body.js"></script>
 <script src="js/physics.js"></script>
 <script src="js/diagnostics.js"></script>

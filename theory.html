@@ -8,6 +8,23 @@
   name="description"
   content="Explicación teórica de nivel universitario de la gravitación newtoniana para N cuerpos puntuales en 2D: ecuaciones de movimiento, integración numérica, cantidades conservadas y el problema de dos y N cuerpos."
 />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Teoría — Órbitas de Newton" />
+<meta
+  property="og:description"
+  content="Explicación de nivel universitario de la gravitación newtoniana para N cuerpos puntuales en 2D."
+/>
+<meta name="twitter:card" content="summary" />
+<!-- Fija el tema antes de pintar, para que no haya parpadeo claro/oscuro. -->
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("orbitas-newton:tema");
+      if (t) document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  })();
+</script>
 <link rel="stylesheet" href="css/styles.css" />
 <link rel="stylesheet" href="lib/katex/katex.min.css" />
 </head>
@@ -21,6 +38,7 @@
     <nav class="topnav">
       <a class="topnav-link" href="index.html">Simulador</a>
       <a class="topnav-link active" href="theory.html">Teoría</a>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Cambiar tema">🌙</button>
     </nav>
   </header>
 
@@ -48,7 +66,7 @@
     </nav>
 
     <section id="ley-gravitacion">
-      <h2>1. Ley de gravitación universal y superposición</h2>
+      <h2>Ley de gravitación universal y superposición</h2>
       <p>
         Para dos masas puntuales, Newton postula una fuerza atractiva a lo largo de la línea que
         las une, proporcional al producto de las masas e inversamente proporcional al cuadrado de
@@ -95,7 +113,7 @@
     </section>
 
     <section id="ecuaciones-movimiento">
-      <h2>2. De la ley a un sistema de ecuaciones diferenciales</h2>
+      <h2>De la ley a un sistema de ecuaciones diferenciales</h2>
       <p>
         La segunda ley de Newton convierte la expresión anterior en un sistema de \(N\) ecuaciones
         diferenciales ordinarias de <strong>segundo orden</strong> acopladas:
@@ -127,7 +145,7 @@
     </section>
 
     <section id="integracion-numerica">
-      <h2>3. Integración numérica: Euler, Verlet, RK4 y paso adaptativo</h2>
+      <h2>Integración numérica: Euler, Verlet, RK4 y paso adaptativo</h2>
       <p>
         Ningún integrador resuelve las ecuaciones anteriores de forma exacta; todos avanzan el
         estado en pasos discretos de tamaño \(dt\), cometiendo un error local en cada paso. Lo que
@@ -232,7 +250,7 @@
     </section>
 
     <section id="cantidades-conservadas">
-      <h2>4. Cantidades conservadas como test de honestidad numérica</h2>
+      <h2>Cantidades conservadas como test de honestidad numérica</h2>
       <p>
         Para un sistema aislado (sin fuerzas externas), la dinámica exacta —no la numérica—
         conserva exactamente tres cantidades globales:
@@ -313,7 +331,7 @@
     </section>
 
     <section id="n-cuerpos-caos">
-      <h2>6. El problema de N cuerpos y el caos</h2>
+      <h2>El problema de N cuerpos y el caos</h2>
       <p>
         Para \(N\geq 3\) no existe, en general, una solución en forma cerrada: Poincaré demostró a
         finales del siglo XIX que el problema de tres cuerpos no admite las integrales de
@@ -358,7 +376,7 @@
     </section>
 
     <section id="configuraciones-centrales">
-      <h2>7. Configuraciones centrales: Lagrange y Euler</h2>
+      <h2>Configuraciones centrales: Lagrange y Euler</h2>
       <p>
         Antes de la figura-8 y mucho antes de los catálogos numéricos modernos, ya se conocían
         soluciones periódicas exactas del problema de tres cuerpos: las <strong>configuraciones
@@ -425,7 +443,7 @@
     </section>
 
     <section id="unidades">
-      <h2>8. Unidades: de la escala adimensional a unidades reales</h2>
+      <h2>Unidades: de la escala adimensional a unidades reales</h2>
       <p>
         El simulador no fija un sistema de unidades físicas concreto: masa, longitud y \(G\) son
         libres, y el tiempo queda determinado por ellos a través de las ecuaciones de movimiento.
@@ -480,6 +498,8 @@
   </footer>
 </div>
 
+<script src="js/theme.js"></script>
+<script src="js/theory.js"></script>
 <script src="lib/katex/katex.min.js"></script>
 <script src="lib/katex/auto-render.min.js"></script>
 <script>

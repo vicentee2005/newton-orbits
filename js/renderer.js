@@ -54,6 +54,27 @@
     return clamp(3 + 2.4 * Math.log10(Math.max(mass, 1e-6) + 1), 3, 34);
   }
 
+  /**
+   * Convierte cualquier color CSS (hex, hsl(...), nombre) a "rgba(r,g,b,a)".
+   * Los colores de los cuerpos pueden venir en cualquiera de esos formatos, así
+   * que usamos un canvas 1x1 cacheado como parser universal. El resultado por
+   * color se memoriza para no re-parsear en cada fotograma.
+   */
+  const _rgbCache = new Map();
+  function hexToRgba(color, alpha) {
+    let rgb = _rgbCache.get(color);
+    if (!rgb) {
+      const probe = hexToRgba._probe || (hexToRgba._probe = document.createElement("canvas").getContext("2d"));
+      probe.fillStyle = "#000";
+      probe.fillStyle = color;
+      probe.fillRect(0, 0, 1, 1);
+      const d = probe.getImageData(0, 0, 1, 1).data;
+      rgb = [d[0], d[1], d[2]];
+      _rgbCache.set(color, rgb);
+    }
+    return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+  }
+
   function drawArrow(ctx, x0, y0, x1, y1, color, width = 2) {
     const dx = x1 - x0;
     const dy = y1 - y0;
@@ -200,22 +221,44 @@
     const { width, height } = canvas;
     ctx.clearRect(0, 0, width, height);
 
+    // Fondo de "espacio profundo": degradado radial sutil. El lienzo es siempre
+    // oscuro (independiente del tema claro/oscuro de la interfaz).
+    const bg = ctx.createRadialGradient(
+      width * 0.5,
+      height * 0.42,
+      Math.min(width, height) * 0.1,
+      width * 0.5,
+      height * 0.5,
+      Math.max(width, height) * 0.75
+    );
+    bg.addColorStop(0, "#0c1226");
+    bg.addColorStop(0.6, "#070b16");
+    bg.addColorStop(1, "#03050c");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+
     if (showGrid) drawGrid(ctx, camera, width, height);
 
-    // Estelas.
+    // Estelas: se desvanecen de la cola (más transparente) a la cabeza (opaca),
+    // dibujando cada segmento con su propia opacidad.
     if (showTrails) {
+      ctx.lineCap = "round";
       for (const b of sim.bodies) {
-        if (b.trail.length < 2) continue;
-        ctx.beginPath();
+        const trail = b.trail;
+        if (trail.length < 2) continue;
         ctx.strokeStyle = b.color;
-        ctx.globalAlpha = 0.55;
-        ctx.lineWidth = 1.5;
-        for (let i = 0; i < b.trail.length; i++) {
-          const p = camera.worldToScreen(b.trail[i].x, b.trail[i].y, width, height);
-          if (i === 0) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
+        let prev = camera.worldToScreen(trail[0].x, trail[0].y, width, height);
+        for (let i = 1; i < trail.length; i++) {
+          const p = camera.worldToScreen(trail[i].x, trail[i].y, width, height);
+          const frac = i / (trail.length - 1); // 0 = cola, 1 = cabeza
+          ctx.globalAlpha = 0.08 + 0.62 * frac;
+          ctx.lineWidth = 0.8 + 1.4 * frac;
+          ctx.beginPath();
+          ctx.moveTo(prev.x, prev.y);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+          prev = p;
         }
-        ctx.stroke();
         ctx.globalAlpha = 1;
       }
     }
@@ -256,6 +299,19 @@
         );
         drawArrow(ctx, p.x, p.y, fEnd.x, fEnd.y, "#f472b6", 2);
       }
+
+      // Resplandor (glow) proporcional al radio de dibujo, que a su vez crece
+      // con la masa: los cuerpos masivos brillan más. Se dibuja como un halo
+      // radial suave detrás del disco.
+      const glowR = r * 3.2;
+      const halo = ctx.createRadialGradient(p.x, p.y, r * 0.6, p.x, p.y, glowR);
+      halo.addColorStop(0, hexToRgba(b.color, 0.5));
+      halo.addColorStop(0.5, hexToRgba(b.color, 0.14));
+      halo.addColorStop(1, hexToRgba(b.color, 0));
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
+      ctx.fill();
 
       ctx.beginPath();
       ctx.fillStyle = b.color;

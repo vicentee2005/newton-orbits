@@ -79,6 +79,7 @@
   const PRESETS = {
     empty: {
       label: "Escena vacía",
+      icon: "➕",
       description: "Sin cuerpos: añade los tuyos manualmente.",
       G: 1,
       dt: 0.01,
@@ -88,6 +89,7 @@
 
     kepler2: {
       label: "Órbita de Kepler (2 cuerpos)",
+      icon: "🪐",
       description:
         "Estrella y planeta orbitando su centro de masas común en una elipse/círculo cerrado. Caso de validación básico: la órbita debe cerrarse y la energía total mantenerse casi constante.",
       G: 1,
@@ -104,6 +106,7 @@
 
     binaryPlanet: {
       label: "Binaria + planeta lejano",
+      icon: "⭐",
       description:
         "Dos estrellas de masa comparable orbitándose entre sí, con un planeta ligero orbitando el conjunto desde lejos.",
       G: 1,
@@ -129,6 +132,7 @@
 
     figureEight: {
       label: "Figura-8 de tres cuerpos",
+      icon: "♾️",
       description:
         "Solución periódica de Chenciner–Montgomery: tres masas iguales persiguiéndose en una única curva en forma de 8. Muy sensible a errores numéricos: buen test de precisión del integrador.",
       G: 1,
@@ -167,6 +171,7 @@
 
     lagrangeEqual: {
       label: "Triángulo de Lagrange, masas iguales (inestable)",
+      icon: "🔺",
       description:
         "Solución exacta de Lagrange (1772): tres masas iguales en los vértices de un triángulo equilátero, girando rígidamente en torno a su centro de masas. Es una órbita cerrada exacta, pero linealmente INESTABLE para masas iguales (criterio de Routh): se mantiene cerrada mucho tiempo, pero cualquier perturbación diminuta —incluido el error numérico— acaba creciendo y rompiendo la simetría tras muchos periodos.",
       G: 1,
@@ -185,6 +190,7 @@
 
     lagrangeTrojan: {
       label: "Troyanos de Lagrange (estable)",
+      icon: "⚖️",
       description:
         "La misma configuración triangular de Lagrange, pero con una masa mucho mayor que las otras dos: satisface el criterio de estabilidad de Routh y es genuinamente estable frente a perturbaciones. Es el mecanismo real detrás de los asteroides troyanos, atrapados 60° por delante y por detrás de Júpiter en su órbita alrededor del Sol.",
       G: 1,
@@ -203,6 +209,7 @@
 
     eulerCollinear: {
       label: "Configuración colineal de Euler (inestable)",
+      icon: "📏",
       description:
         "Solución exacta de Euler (1767): tres masas iguales siempre alineadas. La central queda fija en el centro de masas (las fuerzas de los otros dos se cancelan) mientras los dos exteriores orbitan describiendo círculos opuestos. También es una órbita cerrada exacta pero linealmente inestable, como el triángulo de Lagrange de masas iguales.",
       G: 1,
@@ -221,6 +228,7 @@
 
     solarSystem: {
       label: "Sistema tipo solar (simplificado)",
+      icon: "☀️",
       description:
         "Una estrella central y varios planetas de masa despreciable en órbitas circulares aproximadamente independientes.",
       G: 1,
