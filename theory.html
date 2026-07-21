@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Teoría — Órbitas de Newton</title>
+<meta
+  name="description"
+  content="Explicación teórica de nivel universitario de la gravitación newtoniana para N cuerpos puntuales en 2D: ecuaciones de movimiento, integración numérica, cantidades conservadas y el problema de dos y N cuerpos."
+/>
+<link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="lib/katex/katex.min.css" />
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">🪐</span>
+      <span class="brand-name">Órbitas de Newton</span>
+    </div>
+    <nav class="topnav">
+      <a class="topnav-link" href="index.html">Simulador</a>
+      <a class="topnav-link active" href="theory.html">Teoría</a>
+    </nav>
+  </header>
+
+  <main class="theory-body">
+    <h1>Gravitación newtoniana para N cuerpos puntuales en 2D</h1>
+    <p class="lead" style="color:var(--text-dim)">
+      Formulación matemática completa de lo que hace el simulador: de la ley de Newton a un
+      sistema de ecuaciones diferenciales, cómo se integra numéricamente, qué cantidades deben
+      conservarse y por qué, y qué ocurre cuando el sistema tiene dos o más de dos cuerpos.
+    </p>
+
+    <nav class="theory-nav" aria-label="Índice">
+      <h2>Índice</h2>
+      <ol>
+        <li><a href="#ley-gravitacion">Ley de gravitación universal y superposición</a></li>
+        <li><a href="#ecuaciones-movimiento">De la ley a un sistema de ecuaciones diferenciales</a></li>
+        <li><a href="#integracion-numerica">Integración numérica: Euler, Verlet, RK4 y paso adaptativo</a></li>
+        <li><a href="#cantidades-conservadas">Cantidades conservadas como test de honestidad numérica</a></li>
+        <li><a href="#problema-dos-cuerpos">El problema de dos cuerpos y las órbitas de Kepler</a></li>
+        <li><a href="#n-cuerpos-caos">El problema de N cuerpos y el caos</a></li>
+        <li><a href="#configuraciones-centrales">Configuraciones centrales: Lagrange y Euler</a></li>
+        <li><a href="#unidades">Unidades: de la escala adimensional a unidades reales</a></li>
+        <li><a href="#fuentes">Fuentes</a></li>
+      </ol>
+    </nav>
+
+    <section id="ley-gravitacion">
+      <h2>1. Ley de gravitación universal y superposición</h2>
+      <p>
+        Para dos masas puntuales, Newton postula una fuerza atractiva a lo largo de la línea que
+        las une, proporcional al producto de las masas e inversamente proporcional al cuadrado de
+        la distancia. En forma vectorial, la fuerza que el cuerpo 2 ejerce sobre el cuerpo 1 es:
+      </p>
+      <div class="katex-block">
+        $$ \vec{F}_{1\leftarrow 2} = \frac{G\,m_1 m_2}{|\vec{r}_2-\vec{r}_1|^{2}}\;
+           \frac{\vec{r}_2-\vec{r}_1}{|\vec{r}_2-\vec{r}_1|} =
+           \frac{G\,m_1 m_2\,(\vec{r}_2-\vec{r}_1)}{|\vec{r}_2-\vec{r}_1|^{3}} $$
+      </div>
+      <p>
+        donde \(G\) es la constante de gravitación universal. Por la tercera ley de Newton,
+        \(\vec{F}_{2\leftarrow 1}=-\vec{F}_{1\leftarrow 2}\): el par de fuerzas es igual y opuesto,
+        y actúa sobre la línea que une los dos cuerpos (fuerza <em>central</em>). Esta propiedad
+        es la que hace posible casi todo lo que viene después: la conservación del momento lineal
+        (sección 4) y del momento angular se derivan directamente de ella.
+      </p>
+      <p>
+        Para \(N\) cuerpos, la gravedad obedece el <strong>principio de superposición</strong>: la
+        fuerza total sobre el cuerpo \(i\) es simplemente la suma vectorial de las fuerzas que
+        ejercen todos los demás, y la aceleración resultante es
+      </p>
+      <div class="katex-block">
+        $$ \vec{a}_i = \frac{1}{m_i}\sum_{j\neq i} \vec{F}_{i \leftarrow j}
+           = \sum_{j\neq i} \frac{G\,m_j\,(\vec{r}_j-\vec{r}_i)}{|\vec{r}_j-\vec{r}_i|^{3}} $$
+      </div>
+      <p>
+        Esta es exactamente la fórmula que implementa <code>physics.js</code> en el simulador.
+      </p>
+      <div class="callout">
+        Nótese que \(\vec{a}_i\) <strong>no depende de \(m_i\)</strong>: la masa del propio cuerpo
+        se cancela entre la segunda ley (\(\vec{F}=m_i\vec{a}_i\)) y la ley de gravitación
+        (\(\vec{F}\propto m_i\)). Esta es la razón newtoniana del principio de equivalencia: dos
+        cuerpos de masas distintas colocados en el mismo punto, con la misma velocidad, siguen
+        exactamente la misma trayectoria.
+      </div>
+      <p>
+        El simulador trabaja en 2D. Esto no es una aproximación adicional: si todas las
+        posiciones y velocidades iniciales de un sistema (de 2, 3 o más cuerpos) están contenidas
+        en un mismo plano, la ausencia de fuerzas fuera de ese plano garantiza que el movimiento
+        permanece en él para siempre. Trabajar en 2D es, por tanto, una restricción exacta de las
+        condiciones iniciales, no una simplificación de la física.
+      </p>
+    </section>
+
+    <section id="ecuaciones-movimiento">
+      <h2>2. De la ley a un sistema de ecuaciones diferenciales</h2>
+      <p>
+        La segunda ley de Newton convierte la expresión anterior en un sistema de \(N\) ecuaciones
+        diferenciales ordinarias de <strong>segundo orden</strong> acopladas:
+      </p>
+      <div class="katex-block">
+        $$ \frac{d^2\vec{r}_i}{dt^2} = \sum_{j\neq i} \frac{G\,m_j\,(\vec{r}_j-\vec{r}_i)}{|\vec{r}_j-\vec{r}_i|^{3}},
+           \qquad i = 1,\dots,N $$
+      </div>
+      <p>
+        Ningún integrador numérico trabaja directamente con derivadas segundas: el primer paso
+        siempre es reducir el orden introduciendo la velocidad como variable independiente. El
+        <strong>estado</strong> del sistema completo se convierte en el vector
+        \(\vec{y}=(\vec{r}_1,\vec{v}_1,\dots,\vec{r}_N,\vec{v}_N)\), de dimensión \(4N\) en 2D, y
+        las ecuaciones se reescriben como un sistema de primer orden:
+      </p>
+      <div class="katex-block">
+        $$ \frac{d\vec{r}_i}{dt} = \vec{v}_i, \qquad
+           \frac{d\vec{v}_i}{dt} = \vec{a}_i(\vec{r}_1,\dots,\vec{r}_N) $$
+      </div>
+      <p>
+        Dado un estado inicial \(\vec{y}(0)\) — exactamente lo que se define al añadir cuerpos en
+        el simulador — la teoría de ecuaciones diferenciales garantiza una solución única mientras
+        el campo de fuerzas sea suficientemente regular. Esa regularidad falla exactamente en el
+        único punto delicado del problema: \(\vec{r}_i=\vec{r}_j\), donde la fuerza diverge. Los
+        cuerpos puntuales no chocan en la práctica (ver sección 3), así que esta singularidad casi
+        nunca se alcanza, pero sí se puede <em>rozar</em> en un encuentro cercano, y ahí es donde
+        la elección de integrador numérico empieza a importar de verdad.
+      </p>
+    </section>
+
+    <section id="integracion-numerica">
+      <h2>3. Integración numérica: Euler, Verlet, RK4 y paso adaptativo</h2>
+      <p>
+        Ningún integrador resuelve las ecuaciones anteriores de forma exacta; todos avanzan el
+        estado en pasos discretos de tamaño \(dt\), cometiendo un error local en cada paso. Lo que
+        distingue a un buen método de uno malo para <em>órbitas</em> no es solo ese error local,
+        sino cómo se acumula a lo largo de miles de pasos.
+      </p>
+
+      <h3>Euler explícito</h3>
+      <div class="katex-block">
+        $$ \vec{r}_{n+1} = \vec{r}_n + \vec{v}_n\,dt, \qquad
+           \vec{v}_{n+1} = \vec{v}_n + \vec{a}(\vec{r}_n)\,dt $$
+      </div>
+      <p>
+        Es el método más simple: error local \(O(dt^2)\), error global \(O(dt)\). El problema no
+        es solo su baja precisión, sino que <strong>no es simpléctico</strong>: en un potencial
+        central como el gravitatorio, Euler inyecta energía de forma sistemática en cada paso, por
+        lo que una órbita que debería ser una elipse cerrada se convierte en una espiral que se
+        aleja indefinidamente. El simulador lo incluye únicamente con fines comparativos.
+      </p>
+      <div class="callout warn">
+        Prueba el preset "Órbita de Kepler" con el integrador Euler y observa el panel de
+        diagnósticos: la energía total crece sin límite, paso a paso, en vez de oscilar en torno a
+        un valor fijo.
+      </div>
+
+      <h3>Velocity Verlet (integrador por defecto)</h3>
+      <div class="katex-block">
+        $$ \vec{r}_{n+1} = \vec{r}_n + \vec{v}_n\,dt + \tfrac12 \vec{a}_n\,dt^2, \qquad
+           \vec{v}_{n+1} = \vec{v}_n + \tfrac12(\vec{a}_n+\vec{a}_{n+1})\,dt $$
+      </div>
+      <p>
+        Verlet también tiene error global \(O(dt^2)\), igual que Euler en apariencia, pero con una
+        diferencia crucial: es un integrador <strong>simpléctico</strong>. Preserva de forma
+        aproximada la estructura geométrica (el espacio de fases) de la mecánica hamiltoniana, lo
+        que implica que en realidad resuelve <em>exactamente</em> un sistema hamiltoniano muy
+        próximo al original. Consecuencia práctica: el error de energía no crece con el tiempo,
+        sino que oscila acotado alrededor de cero, incluso tras millones de pasos. Por eso es el
+        integrador recomendado para observar órbitas a largo plazo.
+      </p>
+
+      <h3>Runge-Kutta de 4º orden (RK4)</h3>
+      <p>
+        RK4 evalúa la aceleración en cuatro puntos dentro de cada paso (\(k_1,k_2,k_3,k_4\)) y
+        combina esas cuatro pendientes con los pesos clásicos \(\tfrac16(k_1+2k_2+2k_3+k_4)\),
+        logrando un error global \(O(dt^4)\): mucho más preciso que Verlet <em>paso a paso</em>.
+        Pero no es simpléctico, por lo que en integraciones muy largas puede acumular una deriva
+        de energía lenta y sistemática (mucho menor que la de Euler, pero no nula). A cambio de
+        esa precisión por paso, cuesta cuatro evaluaciones de fuerza en vez de una o dos. Es la
+        opción recomendada para trayectorias sensibles a corto plazo, como la figura-8 de tres
+        cuerpos.
+      </p>
+
+      <table class="compare">
+        <thead>
+          <tr><th>Método</th><th>Orden</th><th>Coste/paso</th><th>¿Simpléctico?</th><th>Energía a largo plazo</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Euler explícito</td><td>1</td><td>1 evaluación</td><td>No</td><td>Deriva sistemática (crece)</td></tr>
+          <tr><td>Velocity Verlet</td><td>2</td><td>1 evaluación</td><td>Sí</td><td>Oscila acotada, sin deriva</td></tr>
+          <tr><td>Runge-Kutta 4</td><td>4</td><td>4 evaluaciones</td><td>No</td><td>Deriva lenta (pequeña)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Paso de tiempo adaptativo en encuentros cercanos</h3>
+      <p>
+        Como los cuerpos son puntos matemáticos y no se aplica ningún suavizado ("softening") a la
+        fuerza, cuando dos cuerpos se acercan mucho la aceleración crece sin límite y la escala de
+        tiempo característica del encuentro se hace mucho más corta que el \(dt\) que el usuario
+        haya elegido. Con un paso fijo, esto produce un error de truncamiento local enorme
+        precisamente en el instante más delicado, que se traduce en una inyección de energía
+        completamente artificial — un fallo puramente numérico, no físico.
+      </p>
+      <p>
+        La solución estándar en códigos de N cuerpos (criterio de Aarseth) es reducir el paso
+        dinámicamente. Para cada par de cuerpos se calcula
+      </p>
+      <div class="katex-block">
+        $$ \tau_{ij} = \eta \cdot \min\!\left( \sqrt{\frac{r_{ij}^{3}}{G\,(m_i+m_j)}}\; ,\;
+           \frac{r_{ij}}{|\vec{v}_{ij}|} \right) $$
+      </div>
+      <p>
+        El primer término es el <em>tiempo de caída libre</em> local; el segundo, el <em>tiempo de
+        cruce</em>, indispensable en encuentros rápidos (tipo hipérbola) donde los cuerpos no
+        "caen" el uno hacia el otro desde el reposo, sino que pasan muy rápido muy cerca. El paso
+        efectivo nunca supera \(\tau=\min_{ij}(\tau_{ij})\), con \(\eta\) una constante de
+        seguridad pequeña. El simulador recalcula \(\tau\) <strong>después de cada micro-paso</strong>,
+        no una sola vez al principio del intervalo: dos cuerpos pueden estar lejos al empezar un
+        \(dt\) y acercarse mucho durante ese mismo intervalo, así que congelar la estimación al
+        inicio subestimaría justo el momento en que más hace falta refinar.
+      </p>
+      <p>
+        Como los cuerpos son puntuales, no hace falta ningún mecanismo de colisión: para cualquier
+        encuentro con momento angular relativo no nulo, la conservación del momento angular impone
+        una distancia mínima de aproximación estrictamente positiva (igual que en el problema de
+        Kepler de la sección 5). Solo un encuentro exactamente frontal, de momento angular nulo —
+        un caso de medida cero, prácticamente irrealizable con el ratón — se acercaría a una
+        distancia arbitrariamente pequeña; para cubrir incluso ese caso límite sin que el
+        simulador se congele, el número de sub-pasos por fotograma tiene un techo de seguridad muy
+        alto, que simplemente detiene el refinamiento (sin forzar nunca un paso más grande de lo
+        que el criterio indica) si llegara a alcanzarse.
+      </p>
+    </section>
+
+    <section id="cantidades-conservadas">
+      <h2>4. Cantidades conservadas como test de honestidad numérica</h2>
+      <p>
+        Para un sistema aislado (sin fuerzas externas), la dinámica exacta —no la numérica—
+        conserva exactamente tres cantidades globales:
+      </p>
+      <div class="two-col">
+        <div>
+          <p><strong>Momento lineal total</strong></p>
+          <div class="katex-block">$$ \vec{P}=\sum_i m_i \vec{v}_i $$</div>
+          <p>
+            Se conserva porque las fuerzas internas se cancelan por pares (tercera ley de Newton).
+            Como consecuencia, el centro de masas se mueve en línea recta a velocidad constante:
+            \(\vec{R}_{cm}(t)=\vec{R}_{cm}(0)+\vec{V}_{cm}\,t\).
+          </p>
+        </div>
+        <div>
+          <p><strong>Momento angular total</strong></p>
+          <div class="katex-block">$$ L=\sum_i m_i\,(x_i v_{y,i} - y_i v_{x,i}) $$</div>
+          <p>
+            Se conserva porque la gravedad es una fuerza <em>central</em>: cada par de fuerzas
+            actúa sobre la línea que une a los dos cuerpos, así que no ejerce par (torque) neto
+            respecto a ningún punto fijo.
+          </p>
+        </div>
+      </div>
+      <p><strong>Energía mecánica total</strong></p>
+      <div class="katex-block">
+        $$ E = \underbrace{\sum_i \tfrac12 m_i |\vec{v}_i|^2}_{\text{cinética }T} \;-\;
+           \underbrace{\sum_{i<j} \frac{G\,m_i m_j}{r_{ij}}}_{-\,\text{potencial } U} $$
+      </div>
+      <p>
+        Estas tres leyes son exactas para la dinámica continua, pero un integrador numérico solo
+        las preserva de forma <em>aproximada</em>. La manera en que las incumple es diagnóstica:
+        un método no simpléctico como Euler tiende a violarlas con un sesgo sistemático (la
+        energía crece o decrece monótonamente); un método simpléctico como Verlet las mantiene
+        oscilando en una banda acotada. Por eso el panel de diagnósticos del simulador muestra
+        estas cantidades en vivo: no son un adorno, son la forma más directa de comprobar si lo
+        que se está viendo en pantalla merece confianza numérica.
+      </p>
+    </section>
+
+    <section id="problema-dos-cuerpos">
+      <h2>5. El problema de dos cuerpos y las órbitas de Kepler</h2>
+      <p>
+        Para \(N=2\), el problema tiene solución analítica completa. Separando el movimiento del
+        centro de masas (que viaja en línea recta, sección 4) del movimiento <em>relativo</em>
+        \(\vec{r}=\vec{r}_2-\vec{r}_1\), este último obedece la ecuación de un único cuerpo
+        ficticio de masa reducida \(\mu = \dfrac{m_1 m_2}{m_1+m_2}\) orbitando un centro fijo de
+        masa total \(M=m_1+m_2\):
+      </p>
+      <div class="katex-block">
+        $$ \frac{d^2\vec{r}}{dt^2} = -\frac{G M\,\vec{r}}{|\vec{r}|^{3}} $$
+      </div>
+      <p>
+        La conservación del momento angular relativo implica movimiento plano y la ley de las
+        áreas iguales (segunda ley de Kepler). Combinando esa conservación con la de la energía
+        se obtiene la <strong>ecuación de la órbita</strong>, una cónica en coordenadas polares
+        centradas en el foco:
+      </p>
+      <div class="katex-block">
+        $$ r(\theta) = \frac{p}{1+e\cos\theta}, \qquad p=\frac{h^2}{GM} $$
+      </div>
+      <p>
+        donde \(h=|\vec{r}\times\vec{v}|\) es el momento angular específico y \(e\) la
+        excentricidad, determinada por la energía específica \(\varepsilon = v^2/2 - GM/r\):
+        elipse si \(e<1\) (\(\varepsilon<0\), órbita ligada), parábola si \(e=1\)
+        (\(\varepsilon=0\)), hipérbola si \(e>1\) (\(\varepsilon>0\), no ligada). Para el caso
+        ligado, la tercera ley de Kepler relaciona el periodo \(T\) con el semieje mayor \(a\):
+      </p>
+      <div class="katex-block">
+        $$ T^2 = \frac{4\pi^2}{GM}\,a^3 $$
+      </div>
+      <p>
+        El preset "Órbita de Kepler" del simulador coloca ambos cuerpos en órbitas circulares
+        (\(e=0\)) alrededor de su centro de masas común, el caso más simple de validar: la órbita
+        debe cerrarse exactamente y la energía total debe permanecer constante.
+      </p>
+      <a class="preset-link" href="index.html?preset=kepler2">▶ Ver en el simulador</a>
+    </section>
+
+    <section id="n-cuerpos-caos">
+      <h2>6. El problema de N cuerpos y el caos</h2>
+      <p>
+        Para \(N\geq 3\) no existe, en general, una solución en forma cerrada: Poincaré demostró a
+        finales del siglo XIX que el problema de tres cuerpos no admite las integrales de
+        movimiento adicionales que harían falta para resolverlo analíticamente como al de dos
+        cuerpos. Las únicas cantidades conservadas siguen siendo las de la sección 4 (energía,
+        momento lineal y momento angular totales): no bastan para determinar la trayectoria
+        completa cuando hay tres o más cuerpos.
+      </p>
+      <p>
+        Además, el comportamiento genérico del problema de N cuerpos es <strong>caótico</strong>:
+        dos condiciones iniciales arbitrariamente próximas pueden dar lugar a trayectorias que se
+        separan exponencialmente con el tiempo. Esto no contradice el determinismo de las
+        ecuaciones —dadas las mismas condiciones iniciales exactas, la trayectoria futura está
+        perfectamente determinada— pero sí destruye la <em>predictibilidad</em> práctica a largo
+        plazo, porque cualquier incertidumbre microscópica en las condiciones iniciales (o
+        cualquier error numérico) se amplifica sin límite.
+      </p>
+      <p>
+        Existen, sin embargo, soluciones periódicas exactas para configuraciones especiales de
+        masas y condiciones iniciales. La más célebre es la <strong>figura-8</strong>: tres masas
+        iguales persiguiéndose indefinidamente a lo largo de una única curva en forma de ocho, sin
+        colisionar nunca. Fue descubierta numéricamente por Cristopher Moore en 1993 y su
+        existencia se demostró rigurosamente en 2000 (Chenciner y Montgomery). Es un excelente
+        test de precisión numérica: cualquier error de integración acumulado se manifiesta
+        rápidamente como una desviación de la curva cerrada.
+      </p>
+      <a class="preset-link" href="index.html?preset=figureEight">▶ Ver en el simulador</a>
+      <p>
+        Encontrar órbitas periódicas nuevas sigue siendo, hoy mismo, un tema de investigación
+        activo. En 2013, Šuvakov y Dmitrašinović publicaron un método topológico de clasificación
+        que les permitió encontrar 13 familias nuevas de órbitas periódicas de tres cuerpos de
+        masas iguales y momento angular nulo — bautizadas con nombres visuales como "mariposa" o
+        "polilla" según la forma de la curva (Šuvakov &amp; Dmitrašinović, <em>Phys. Rev. Lett.</em>
+        110, 114301, 2013). Un trabajo posterior mostró que varias de esas órbitas, pese a ser
+        soluciones exactas, son dinámicamente inestables — la misma distinción entre "cerrada" y
+        "estable" que aparece en la siguiente sección. Búsquedas numéricas a gran escala para
+        clasificar qué órbitas de tres cuerpos son estables continúan publicándose (ver p. ej. el
+        trabajo de 2025 en la lista de fuentes al final de la página): con miles de familias
+        conocidas y presumiblemente infinitas por descubrir, el problema de tres cuerpos, casi 250
+        años después de Lagrange, todavía no está agotado.
+      </p>
+    </section>
+
+    <section id="configuraciones-centrales">
+      <h2>7. Configuraciones centrales: Lagrange y Euler</h2>
+      <p>
+        Antes de la figura-8 y mucho antes de los catálogos numéricos modernos, ya se conocían
+        soluciones periódicas exactas del problema de tres cuerpos: las <strong>configuraciones
+        centrales</strong>, arreglos de masas en los que la fuerza neta sobre cada cuerpo apunta
+        exactamente hacia el centro de masas del sistema, con magnitud proporcional a la distancia
+        a él. Esa condición es precisamente la que hace falta para que toda la figura pueda girar
+        rígidamente sin deformarse: cada cuerpo describe un círculo perfecto alrededor del
+        baricentro común, todos con el mismo periodo.
+      </p>
+
+      <h3>El triángulo equilátero de Lagrange (1772)</h3>
+      <p>
+        Lagrange demostró, por puro álgebra y sin tener en mente ningún caso real, que tres masas
+        cualesquiera \(m_1,m_2,m_3\) colocadas en los vértices de un triángulo equilátero de lado
+        \(a\) giran rígidamente en torno a su centro de masas con velocidad angular
+      </p>
+      <div class="katex-block">$$ \omega^2 = \frac{G\,(m_1+m_2+m_3)}{a^3} $$</div>
+      <p>
+        válida para <em>cualquier</em> proporción de masas, no solo iguales. Cada cuerpo orbita a
+        una distancia del baricentro proporcional a las otras dos masas — el más pesado describe
+        el círculo más pequeño.
+      </p>
+      <p>
+        Pero que una órbita sea exacta no significa que sea observable en la práctica: hace falta
+        además que sea <strong>estable</strong>, es decir, que pequeñas perturbaciones no crezcan.
+        Routh (1875) demostró que el triángulo de Lagrange es linealmente estable si y solo si
+      </p>
+      <div class="katex-block">$$ (m_1+m_2+m_3)^2 > 27\,(m_1 m_2+m_2 m_3+m_3 m_1) $$</div>
+      <p>
+        Para tres masas <em>iguales</em> el cociente da \(9/27=1/3\): la desigualdad falla, así que
+        esa versión concreta es exacta pero inestable (preset "Triángulo de Lagrange, masas
+        iguales"). Con una masa mucho mayor que las otras dos, en cambio, la desigualdad se cumple
+        con margen — y esa es exactamente la situación de los <strong>asteroides troyanos</strong>,
+        atrapados en los puntos \(L_4\) y \(L_5\) de la órbita de Júpiter alrededor del Sol, 60°
+        por delante y por detrás del planeta (preset "Troyanos de Lagrange"): un fenómeno
+        astronómico real que es, literalmente, la solución de Lagrange en acción.
+      </p>
+      <a class="preset-link" href="index.html?preset=lagrangeTrojan">▶ Ver Troyanos (estable) en el simulador</a>
+      <a class="preset-link" href="index.html?preset=lagrangeEqual">▶ Ver masas iguales (inestable) en el simulador</a>
+
+      <h3>La configuración colineal de Euler (1767)</h3>
+      <p>
+        Unos años antes que Lagrange, Euler había encontrado otra familia de configuraciones
+        centrales: tres masas siempre alineadas sobre una recta que gira. Para el caso simétrico de
+        masas iguales, la del centro queda exactamente en reposo en el centro de masas —las
+        fuerzas de las otras dos se cancelan por simetría— mientras las dos exteriores, a distancia
+        \(d\) del centro, orbitan describiendo círculos opuestos con
+      </p>
+      <div class="katex-block">$$ \omega^2 = \frac{5}{4}\,\frac{G\,m}{d^3} $$</div>
+      <p>
+        A diferencia del triángulo de Lagrange, la configuración colineal de Euler es linealmente
+        inestable para <em>cualquier</em> proporción de masas: no existe un equivalente colineal de
+        los troyanos.
+      </p>
+      <a class="preset-link" href="index.html?preset=eulerCollinear">▶ Ver en el simulador</a>
+      <div class="callout">
+        Lagrange y Euler, junto con la órbita circular de dos cuerpos, son las únicas familias de
+        soluciones periódicas del problema de N cuerpos que se conocen en <em>forma cerrada</em>
+        (una fórmula, sin integrar nada numéricamente). Todo lo demás —la figura-8, las mariposas y
+        polillas de 2013, y cualquier otra órbita periódica que se siga descubriendo hoy— se ha
+        encontrado por búsqueda numérica cuidadosa, y su existencia exacta se demuestra
+        matemáticamente después, no antes.
+      </div>
+    </section>
+
+    <section id="unidades">
+      <h2>8. Unidades: de la escala adimensional a unidades reales</h2>
+      <p>
+        El simulador no fija un sistema de unidades físicas concreto: masa, longitud y \(G\) son
+        libres, y el tiempo queda determinado por ellos a través de las ecuaciones de movimiento.
+        Esto es deliberado — permite explorar la física sin preocuparse de factores de escala — y
+        es reinterpretable en unidades reales en cualquier momento.
+      </p>
+      <p>
+        Un ejemplo útil: en astronomía es habitual medir distancias en unidades astronómicas
+        (UA), masas en masas solares (\(M_\odot\)) y tiempo en años. En ese sistema,
+      </p>
+      <div class="katex-block">$$ G \approx 4\pi^2\ \text{UA}^3\,M_\odot^{-1}\,\text{año}^{-2} $$</div>
+      <p>
+        Por tanto, si en el simulador se fija \(G=4\pi^2\approx 39{,}48\) y se interpreta cada
+        unidad de longitud como 1 UA y cada unidad de masa como 1 masa solar, cada unidad de
+        tiempo del simulador equivale automáticamente a un año real — sin ningún factor de
+        conversión adicional. Con \(G=1\) (el valor por defecto de los presets), el sistema de
+        unidades es simplemente el que hace esa igualdad cierta para las masas y distancias que se
+        hayan elegido.
+      </p>
+    </section>
+
+    <section id="fuentes">
+      <h2>Fuentes</h2>
+      <ul>
+        <li>
+          M. Šuvakov, V. Dmitrašinović, "Three Classes of Newtonian Three-Body Planar Periodic
+          Orbits", <em>Phys. Rev. Lett.</em> 110, 114301 (2013).
+          <a href="https://arxiv.org/abs/1303.0181">arXiv:1303.0181</a>
+        </li>
+        <li>
+          "An extensive search for stable periodic orbits of the equal-mass zero angular momentum
+          three-body problem" (2025).
+          <a href="https://arxiv.org/pdf/2510.22802">arXiv:2510.22802</a>
+        </li>
+        <li>
+          A. Chenciner, R. Montgomery, "A remarkable periodic solution of the three-body problem
+          in the case of equal masses" (2000). <a href="https://arxiv.org/abs/math/0011268">arXiv:math/0011268</a>
+        </li>
+        <li>
+          J.-L. Lagrange, <em>Essai sur le problème des trois corps</em> (1772) — solución triangular;
+          E. J. Routh, criterio de estabilidad lineal (1875).
+        </li>
+        <li>
+          L. Euler, configuración colineal de tres cuerpos (1767).
+        </li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Vuelve al <a href="index.html">simulador</a> para poner en práctica lo anterior.</p>
+  </footer>
+</div>
+
+<script src="lib/katex/katex.min.js"></script>
+<script src="lib/katex/auto-render.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    renderMathInElement(document.body, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false },
+        { left: "\\(", right: "\\)", display: false },
+        { left: "\\[", right: "\\]", display: true },
+      ],
+      throwOnError: false,
+    });
+  });
+</script>
+</body>
+</html>

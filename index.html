@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Órbitas de Newton — Simulador de N cuerpos puntuales</title>
+<meta
+  name="description"
+  content="Simulador interactivo 2D de gravitación newtoniana para N cuerpos puntuales, con explicación teórica de nivel universitario."
+/>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">🪐</span>
+      <span class="brand-name">Órbitas de Newton</span>
+    </div>
+    <nav class="topnav">
+      <a class="topnav-link active" href="index.html">Simulador</a>
+      <a class="topnav-link" href="theory.html">Teoría</a>
+    </nav>
+  </header>
+
+  <main class="workspace">
+    <section class="canvas-wrap">
+      <canvas id="scene" aria-label="Lienzo de simulación de órbitas"></canvas>
+      <div class="canvas-overlay" id="canvasHint" hidden></div>
+      <div class="canvas-toolbar">
+        <button id="zoomInBtn" class="icon-btn" title="Acercar (+)">+</button>
+        <button id="zoomOutBtn" class="icon-btn" title="Alejar (−)">−</button>
+        <button id="zoomResetBtn" class="icon-btn" title="Restablecer vista">⤢</button>
+      </div>
+      <div class="canvas-diagnostics" id="onCanvasDiagnostics"></div>
+    </section>
+
+    <aside class="panel">
+      <section class="panel-section">
+        <h2>Reproducción</h2>
+        <div class="row buttons-row">
+          <button id="playPauseBtn" class="btn btn-primary">▶ Reproducir</button>
+          <button id="stepBtn" class="btn">Paso</button>
+          <button id="resetBtn" class="btn">⟲ Reiniciar</button>
+        </div>
+        <label class="field">
+          <span>Velocidad de simulación (pasos/fotograma): <b id="speedValue">1</b></span>
+          <input type="range" id="speedInput" min="1" max="40" step="1" value="1" />
+        </label>
+      </section>
+
+      <section class="panel-section">
+        <h2>Parámetros físicos</h2>
+        <label class="field">
+          <span>Paso de tiempo dt: <b id="dtValue">0.01</b></span>
+          <input type="range" id="dtInput" min="0.0005" max="0.1" step="0.0005" value="0.01" />
+        </label>
+        <label class="field">
+          <span>Constante gravitacional G: <b id="gValue">1</b></span>
+          <input type="range" id="gInput" min="0" max="5" step="0.01" value="1" />
+        </label>
+        <label class="field">
+          <span>Integrador</span>
+          <select id="integratorSelect">
+            <option value="verlet">Velocity Verlet (recomendado)</option>
+            <option value="rk4">Runge-Kutta 4</option>
+            <option value="euler">Euler explícito (inestable)</option>
+          </select>
+        </label>
+        <p class="hint-text">
+          Los cuerpos son puntuales: no hay colisiones ni suavizado de fuerza. En encuentros
+          cercanos el motor subdivide el paso automáticamente (ver <a href="theory.html#integracion-numerica">teoría</a>).
+        </p>
+      </section>
+
+      <section class="panel-section">
+        <h2>Capas visuales</h2>
+        <div class="checks-grid">
+          <label><input type="checkbox" id="showTrails" checked /> Estelas</label>
+          <label><input type="checkbox" id="showGrid" checked /> Rejilla</label>
+          <label><input type="checkbox" id="showLabels" checked /> Nombres</label>
+          <label><input type="checkbox" id="showVelocity" /> Vector velocidad</label>
+          <label><input type="checkbox" id="showForce" /> Vector aceleración</label>
+          <label><input type="checkbox" id="showCenterOfMass" /> Centro de masas</label>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h2>Cuerpos</h2>
+        <div class="row buttons-row">
+          <button id="addBodyBtn" class="btn btn-accent">+ Añadir cuerpo</button>
+          <label class="field inline">
+            <span>Masa</span>
+            <input type="number" id="newBodyMass" value="10" min="0.0001" step="any" />
+          </label>
+        </div>
+        <div class="row buttons-row">
+          <button id="deleteSelectedBtn" class="btn" disabled>🗑 Eliminar seleccionado</button>
+        </div>
+        <p class="hint-text">
+          Para eliminar un cuerpo: selecciónalo (clic sobre él en el lienzo o en su fila) y pulsa
+          este botón o la tecla Supr, o usa el ✕ al final de su fila en la tabla.
+        </p>
+        <p class="hint-text" id="addModeHint" hidden>
+          Haz clic en el lienzo para colocar el cuerpo. Arrastra antes de soltar para fijar su
+          velocidad inicial (la flecha amarilla muestra la velocidad resultante).
+        </p>
+        <div class="table-wrap">
+          <table id="bodyTable">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Nombre</th>
+                <th>Masa</th>
+                <th>x</th>
+                <th>y</th>
+                <th>vx</th>
+                <th>vy</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="bodyTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h2>Diagnósticos (conservación)</h2>
+        <ul class="diagnostics-list" id="diagnosticsList">
+          <li>Energía cinética: <span id="diagKE">—</span></li>
+          <li>Energía potencial: <span id="diagPE">—</span></li>
+          <li>Energía total: <span id="diagE">—</span></li>
+          <li>Deriva de energía: <span id="diagDrift">—</span></li>
+          <li>Momento lineal |p|: <span id="diagP">—</span></li>
+          <li>Momento angular L: <span id="diagL">—</span></li>
+          <li>Tiempo simulado: <span id="diagTime">—</span></li>
+          <li>Sub-pasos (encuentro cercano): <span id="diagSubsteps">—</span></li>
+        </ul>
+      </section>
+
+      <section class="panel-section">
+        <h2>Gráficas</h2>
+        <h3 class="chart-subtitle">Espacio fásico — proyección (x, vₓ)</h3>
+        <canvas id="phaseChart" class="chart-canvas" width="300" height="210"></canvas>
+        <ul id="phaseStatus" class="phase-status"></ul>
+        <p class="hint-text">
+          Cada curva es la trayectoria de un cuerpo en el plano (x, vₓ), una proyección 2D de su
+          espacio fásico completo (x, y, vₓ, v_y). Una curva que se cierra sobre sí misma indica
+          movimiento periódico; para trayectorias abiertas la escala solo sigue la parte reciente
+          (la trayectoria completa sería infinita).
+        </p>
+        <h3 class="chart-subtitle">Energía frente al tiempo</h3>
+        <canvas id="energyChart" class="chart-canvas" width="300" height="170"></canvas>
+        <p class="hint-text">
+          Cada curva de color es la energía de un cuerpo (su energía cinética más la mitad de cada
+          energía potencial de par en la que participa). Las energías individuales se intercambian
+          continuamente; la línea blanca es su suma — la energía total — que debe permanecer
+          constante.
+        </p>
+      </section>
+
+      <section class="panel-section">
+        <h2>Escenarios</h2>
+        <label class="field">
+          <span>Preset</span>
+          <select id="presetSelect"></select>
+        </label>
+        <p class="hint-text" id="presetDescription"></p>
+        <div class="row buttons-row">
+          <button id="loadPresetBtn" class="btn">Cargar escenario</button>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h2>Guardar / compartir</h2>
+        <div class="row buttons-row">
+          <button id="exportBtn" class="btn">Exportar JSON</button>
+          <button id="importBtn" class="btn">Importar JSON</button>
+          <input type="file" id="importFileInput" accept="application/json" hidden />
+        </div>
+        <div class="row buttons-row">
+          <button id="saveLocalBtn" class="btn">Guardar en este navegador</button>
+          <button id="loadLocalBtn" class="btn">Cargar guardado</button>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <p>
+      Simulación de gravitación newtoniana para cuerpos puntuales en 2D, sin efectos
+      relativistas. Ver la <a href="theory.html">explicación teórica completa</a>.
+    </p>
+  </footer>
+</div>
+
+<script src="js/body.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/diagnostics.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/simulation.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
